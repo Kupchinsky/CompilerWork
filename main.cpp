@@ -16,6 +16,10 @@ class ILexicalExpression
 public:
     virtual QString getType() const = 0;
     virtual bool isThis(QString) = 0;
+
+    virtual ~ILexicalExpression()
+    {
+    }
 };
 
 // Операторы цикла
@@ -233,18 +237,26 @@ void checkWord(QString input)
     }
 }
 
+void closeResources()
+{
+    QVectorIterator<ILexicalExpression*> iterator(validExpressions);
+
+    while (iterator.hasNext())
+        delete iterator.next();
+}
+
 #define Delimiter ";"
 
 int main() // int argc, char *argv[]
 {
-    pushValidExpressions();
-
     QFile file("input.txt");
     if(!file.open(QIODevice::ReadOnly))
     {
         qDebug() << "Open file error:" << file.errorString();
         return 1;
     }
+
+    pushValidExpressions();
 
     QTextStream inStream(&file);
 
@@ -280,5 +292,6 @@ int main() // int argc, char *argv[]
         qDebug() << "Word: " << pair.first << ", detected type: " << pair.second->getType();
     }
 
+    closeResources();
     return 0;
 }
