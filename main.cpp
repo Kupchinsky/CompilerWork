@@ -100,6 +100,32 @@ class LE_AssignOperator : public ILexicalExpression
         return input == ":=";
     }
 };
+
+class LE_PlusOperator : public ILexicalExpression
+{
+    QString getType() const
+    {
+        return "Plus operator";
+    }
+
+    bool isThis(QString input)
+    {
+        return input == "+";
+    }
+};
+
+class LE_MinusOperator : public ILexicalExpression
+{
+    QString getType() const
+    {
+        return "Minus operator";
+    }
+
+    bool isThis(QString input)
+    {
+        return input == "-";
+    }
+};
 //
 
 // Числа
@@ -190,7 +216,7 @@ class LE_UnknownWord : public ILexicalExpression
 {
     QString getType() const
     {
-        return "Unknown word";
+        return "Unknown word, maybe constant";
     }
 
     bool isThis(QString)
@@ -216,6 +242,8 @@ void pushValidExpressions()
     validExpressions.push_back(new LE_CloseBracketKeyWord());
     validExpressions.push_back(new LE_OpenSquareKeyWord());
     validExpressions.push_back(new LE_CloseSquareBracketKeyWord());
+    validExpressions.push_back(new LE_PlusOperator());
+    validExpressions.push_back(new LE_MinusOperator());
     validExpressions.push_back(new LE_UnknownWord());
 }
 
@@ -286,10 +314,12 @@ int main() // int argc, char *argv[]
 
     QVectorIterator<QPair<QString, ILexicalExpression*> > iterator(parsedExpressions);
 
+    int i = 0;
     while (iterator.hasNext())
     {
+        i++;
         QPair<QString, ILexicalExpression*> pair = iterator.next();
-        qDebug() << "Word: " << pair.first << ", detected type: " << pair.second->getType();
+        qDebug() << i << pair.first << "is" << pair.second->getType();
     }
 
     closeResources();
