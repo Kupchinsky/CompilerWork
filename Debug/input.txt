@@ -5,3 +5,7 @@ for ( int i = 10; i < 100; i := i + 1 ) do
 for ( int i = 0; i < 0xFF; i := i - 1 ) do
 {
 }
+
+for ( 0int i = 0; i < 1.2e-10; i := i - 1 ) do
+{
+}

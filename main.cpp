@@ -4,6 +4,7 @@
 #include <QPair>
 #include <QRegExp>
 #include <QFile>
+#include <QException>
 
 /*
  * 8. Входной язык содержит операторы цикла for (…; …; …) do …, разделённые символом ; (точка с запятой).
@@ -138,7 +139,7 @@ class LE_NumberConstant : public ILexicalExpression
 
     bool isThis(QString input)
     {
-        QRegExp pattern("^[0-9]+$");
+        QRegExp pattern("^[0-9.e-]+$");
         return pattern.indexIn(input) != -1;
     }
 };
@@ -212,17 +213,39 @@ class LE_CloseSquareBracketKeyWord : public ILexicalExpression
 };
 //
 
-class LE_UnknownWord : public ILexicalExpression
+// Типы
+class LE_IntType : public ILexicalExpression
 {
     QString getType() const
     {
-        return "Unknown word, maybe constant";
+        return "Integer data type";
     }
 
-    bool isThis(QString)
+    bool isThis(QString input)
     {
-        return true;
+        return input == "int";
     }
+};
+
+class LE_DoubleType : public ILexicalExpression
+{
+    QString getType() const
+    {
+        return "Double data type";
+    }
+
+    bool isThis(QString input)
+    {
+        return input == "double";
+    }
+};
+//
+
+class ParseException : public QException
+{
+public:
+    void raise() const { throw *this; }
+    ParseException *clone() const { return new ParseException(*this); }
 };
 
 QVector<ILexicalExpression*> validExpressions;
@@ -244,7 +267,8 @@ void pushValidExpressions()
     validExpressions.push_back(new LE_CloseSquareBracketKeyWord());
     validExpressions.push_back(new LE_PlusOperator());
     validExpressions.push_back(new LE_MinusOperator());
-    validExpressions.push_back(new LE_UnknownWord());
+    validExpressions.push_back(new LE_IntType());
+    validExpressions.push_back(new LE_DoubleType());
 }
 
 void checkWord(QString input)
@@ -260,9 +284,11 @@ void checkWord(QString input)
             QPair<QString, ILexicalExpression*> pair(input, expression);
             parsedExpressions.push_back(pair);
 
-            break;
+            return;
         }
     }
+
+    // Not found
 }
 
 void closeResources()
@@ -288,24 +314,33 @@ int main() // int argc, char *argv[]
 
     QTextStream inStream(&file);
 
-    while (!inStream.atEnd())
+    try
     {
-        foreach (const QString &str, inStream.readLine().split(" "))
+        while (!inStream.atEnd())
         {
-            if (str.length() == 0)
-                continue;
-
-            if (str.indexOf(Delimiter) != -1)
+            foreach (const QString &str, inStream.readLine().split(" "))
             {
-                foreach (const QString &str2, str.split(Delimiter))
+                if (str.length() == 0)
+                    continue;
+
+                if (str.indexOf(Delimiter) != -1)
                 {
-                    if (str2.length() != 0)
-                         checkWord(str2);
+                    foreach (const QString &str2, str.split(Delimiter))
+                    {
+                        if (str2.length() != 0)
+                            checkWord(str2);
+                    }
                 }
+                else
+                    checkWord(str);
             }
-            else
-                checkWord(str);
         }
+    }
+    catch (ParseException &e)
+    {
+        file.close();
+        qDebug() << "ParseException: " << e.what();
+        return 1;
     }
 
     file.close();
