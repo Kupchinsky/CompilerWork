@@ -2,3 +2,5 @@
 *.exe
 Makefile*
 *.pro.user
+*.doc*
+*.ppt*
