@@ -5,6 +5,9 @@
 #include <QRegExp>
 #include <QFile>
 #include <QException>
+#include <QMultiMap>
+#include <QMap>
+#include "BinaryTree.hpp"
 
 /*
  * 8. Входной язык содержит операторы цикла for (…; …; …) do …, разделённые символом ; (точка с запятой).
@@ -186,7 +189,7 @@ class LE_CloseBracketKeyWord : public ILexicalExpression
     }
 };
 
-class LE_OpenSquareKeyWord : public ILexicalExpression
+class LE_OpenSquareBracketKeyWord : public ILexicalExpression
 {
     QString getType() const
     {
@@ -239,6 +242,19 @@ class LE_DoubleType : public ILexicalExpression
         return input == "double";
     }
 };
+
+class LE_Delimiter : public ILexicalExpression
+{
+    QString getType() const
+    {
+        return "Delimiter";
+    }
+
+    bool isThis(QString input)
+    {
+        return input == ";";
+    }
+};
 //
 
 class ParseException : public QException
@@ -248,32 +264,93 @@ public:
     ParseException *clone() const { return new ParseException(*this); }
 };
 
-QVector<ILexicalExpression*> validExpressions;
-QVector<QPair<QString, ILexicalExpression*> > parsedExpressions;
+struct SyntaxNode
+{
+    ILexicalExpression *item;
+    QList<SyntaxNode*> next;
+    bool is_body = false;
+};
+
+QMap<QString, ILexicalExpression*> validExpressions;
+QList<QPair<QString, ILexicalExpression*> > parsedExpressions;
 
 void pushValidExpressions()
 {
-    validExpressions.push_back(new LE_ForOperator());
-    validExpressions.push_back(new LE_DoOperator());
-    validExpressions.push_back(new LE_CompareLessThanOperator());
-    validExpressions.push_back(new LE_CompareGreaterThanOperator());
-    validExpressions.push_back(new LE_CompareEqualsOperator());
-    validExpressions.push_back(new LE_AssignOperator());
-    validExpressions.push_back(new LE_NumberConstant());
-    validExpressions.push_back(new LE_HexNumberConstant());
-    validExpressions.push_back(new LE_OpenBracketKeyWord());
-    validExpressions.push_back(new LE_CloseBracketKeyWord());
-    validExpressions.push_back(new LE_OpenSquareKeyWord());
-    validExpressions.push_back(new LE_CloseSquareBracketKeyWord());
-    validExpressions.push_back(new LE_PlusOperator());
-    validExpressions.push_back(new LE_MinusOperator());
-    validExpressions.push_back(new LE_IntType());
-    validExpressions.push_back(new LE_DoubleType());
+    validExpressions.insert("LE_Delimiter", new LE_Delimiter());
+    validExpressions.insert("LE_ForOperator", new LE_ForOperator());
+    validExpressions.insert("LE_DoOperator", new LE_DoOperator());
+    validExpressions.insert("LE_CompareLessThanOperator", new LE_CompareLessThanOperator());
+    validExpressions.insert("LE_CompareGreaterThanOperator", new LE_CompareGreaterThanOperator());
+    validExpressions.insert("LE_CompareEqualsOperator", new LE_CompareEqualsOperator());
+    validExpressions.insert("LE_AssignOperator", new LE_AssignOperator());
+    validExpressions.insert("LE_NumberConstant", new LE_NumberConstant());
+    validExpressions.insert("LE_HexNumberConstant", new LE_HexNumberConstant());
+    validExpressions.insert("LE_OpenBracketKeyWord", new LE_OpenBracketKeyWord());
+    validExpressions.insert("LE_CloseBracketKeyWord", new LE_CloseBracketKeyWord());
+    validExpressions.insert("LE_OpenSquareBracketKeyWord", new LE_OpenSquareBracketKeyWord());
+    validExpressions.insert("LE_CloseSquareBracketKeyWord", new LE_CloseSquareBracketKeyWord());
+    validExpressions.insert("LE_PlusOperator", new LE_PlusOperator());
+    validExpressions.insert("LE_MinusOperator", new LE_MinusOperator());
+    validExpressions.insert("LE_IntType", new LE_IntType());
+    validExpressions.insert("LE_DoubleType", new LE_DoubleType());
+
+    QMapIterator<QString, ILexicalExpression*> iterator(validExpressions);
+
+    // Операторы
+    SyntaxNode *node_delimiter = new SyntaxNode();
+    node_delimiter->item = validExpressions.value("LE_Delimiter");
+
+    SyntaxNode *node_open_bracket = new SyntaxNode();
+    node_open_bracket->item = validExpressions.value("LE_OpenBracketKeyWord");
+
+    SyntaxNode *node_close_bracket = new SyntaxNode();
+    node_close_bracket->item = validExpressions.value("LE_CloseBracketKeyWord");
+
+    SyntaxNode *node_assign_operator = new SyntaxNode();
+    node_assign_operator->item = validExpressions.value("LE_AssignOperator");
+
+    SyntaxNode *node_open_square_bracket = new SyntaxNode();
+    node_open_square_bracket->item = validExpressions.value("LE_OpenSquareKeyWord");
+
+    SyntaxNode *node_close_square_bracket = new SyntaxNode();
+    node_close_square_bracket->item = validExpressions.value("LE_CloseSquareBracketKeyWord");
+
+    SyntaxNode *node_do_operator = new SyntaxNode();
+    node_do_operator->item = validExpressions.value("LE_DoOperator");
+
+    SyntaxNode *node_subprogram_body = new SyntaxNode(); // Сюда поидее залетят все возможные варианты, но как???
+    node_subprogram_body->is_body = true;
+    //
+
+    /*for (A; B; C) {
+                 * D
+                }
+
+                A - строго оператор присвоения
+                B - строго оператор условия
+                C - строго оператор присвоения
+                D - любая последовательность операторов*/
+
+    SyntaxNode *node_for = new SyntaxNode();
+    node_for->item = validExpressions.value("LE_ForOperator");
+
+    node_for->next.append(node_open_bracket);
+    node_for->next.append(node_assign_operator);
+    node_for->next.append(node_delimiter);
+    node_for->next.append(node_condition);
+    node_for->next.append(node_delimiter);
+    node_for->next.append(node_assign_operator);
+    node_for->next.append(node_close_bracket);
+    node_for->next.append(node_do_operator);
+    node_for->next.append(node_open_square_bracket);
+    node_for->next.append(node_subprogram_body);
+    node_for->next.append(node_close_square_bracket);
+    //
 }
 
 void checkWord(QString input)
 {
-    QVectorIterator<ILexicalExpression*> iterator(validExpressions);
+    QListIterator<ILexicalExpression*> iterator(validExpressions.values());
 
     while (iterator.hasNext())
     {
@@ -282,7 +359,7 @@ void checkWord(QString input)
         if (expression->isThis(input))
         {
             QPair<QString, ILexicalExpression*> pair(input, expression);
-            parsedExpressions.push_back(pair);
+            parsedExpressions.append(pair);
 
             return;
         }
@@ -293,7 +370,7 @@ void checkWord(QString input)
 
 void closeResources()
 {
-    QVectorIterator<ILexicalExpression*> iterator(validExpressions);
+    QListIterator<ILexicalExpression*> iterator(validExpressions.values());
 
     while (iterator.hasNext())
         delete iterator.next();
@@ -327,8 +404,10 @@ int main() // int argc, char *argv[]
                 {
                     foreach (const QString &str2, str.split(Delimiter))
                     {
-                        if (str2.length() != 0)
+                        if (str2.length() != 0) {
                             checkWord(str2);
+                            checkWord(Delimiter);
+                        }
                     }
                 }
                 else
@@ -347,7 +426,7 @@ int main() // int argc, char *argv[]
 
     qDebug() << "Parse complete. Expressions found: " << parsedExpressions.size();
 
-    QVectorIterator<QPair<QString, ILexicalExpression*> > iterator(parsedExpressions);
+    QListIterator<QPair<QString, ILexicalExpression*> > iterator(parsedExpressions);
 
     int i = 0;
     while (iterator.hasNext())
